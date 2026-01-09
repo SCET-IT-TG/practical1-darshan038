@@ -1,0 +1,62 @@
+name: Autograding Tests
+on:
+  push:
+  workflow_dispatch:
+  repository_dispatch:
+
+permissions:
+  checks: write
+  actions: read
+  contents: read
+
+jobs:
+  run-autograding-tests:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-classroom[bot]'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # <--- CRITICAL: Downloads full history so we can count commits
+
+    # -------------------------------------------------------
+    # TEST 1: Lab 1 Verification (Files & Git Usage)
+    # -------------------------------------------------------
+    - name: Lab 1 Verification
+      id: lab1-test
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: Lab 1 Verification
+        setup-command: ""
+        # The | symbol below allows multi-line commands
+        command: |
+          # 1. Check for required files
+          if [ -f "Exp1_GuessGame/index.html" ] && [ -f "Exp1_GuessGame/script.js" ] && [ -f ".gitignore" ]; then
+            echo "✅ Files Found"
+          else
+            echo "❌ Missing files. Check folder 'Exp1_GuessGame' and files."
+            exit 1
+          fi
+
+          # 2. Check commit history (Requires fetch-depth: 0 above)
+          count=$(git rev-list --count HEAD)
+          echo "Debug: Found $count commits"
+          
+          if [ "$count" -gt 1 ]; then
+            echo "✅ Commit History OK"
+          else
+            echo "❌ Only $count commit found. (Did you upload files manually?)"
+            exit 1
+          fi
+        timeout: 10
+        max-score: 10
+
+    # -------------------------------------------------------
+    # REPORTER: Sends grades back to GitHub Classroom
+    # -------------------------------------------------------
+    - name: Autograding Reporter
+      uses: classroom-resources/autograding-grading-reporter@v1
+      env:
+        LAB1-TEST_RESULTS: "${{steps.lab1-test.outputs.result}}"
+      with:
+        runners: lab1-test
